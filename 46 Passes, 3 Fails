@@ -1,0 +1,243 @@
+import java.util.List;
+import java.util.ArrayList;
+
+public class Family {
+	
+	List<String[]> graph = new ArrayList<>();
+	//Each element array has 4 values: name, gender (M-F), childOf(M-F)
+	
+	public boolean addGender(String name, String gender){
+		for (int i = 0; i < graph.size(); i++){
+			if (graph.get(i)[0].equals(name)){
+				if (!gender.equals("")){
+					if (graph.get(i)[1].equals("")){
+						graph.get(i)[1] = gender;
+						for (String[] parent : graph){ //deduce gender if name is parent
+							if (parent[2].equals(name) && !parent[3].equals("")||
+								parent[3].equals(name) && !parent[2].equals("")){
+								deduceGenderOfParent(parent[0]);
+							}
+						}
+						
+					} else if (!graph.get(i)[1].equals(gender)){
+						return false;
+					}
+				}
+				return true;
+			}
+		}
+		String[] element = {name, gender, "", ""};
+		graph.add(element);
+		return true;
+	}
+	
+	public boolean isGender(String name, String gender){
+		for (String[] gen : graph){
+			if (gen[0].equals(name)){
+				if (gen[1].equals(gender)){
+					return true;
+				}
+				return false;
+			}
+		}
+		String[] element = {name, "", "", ""};
+		graph.add(element);
+		return false;
+	}
+	
+	public boolean deduceGenderOfParent (String childName){
+		//assuming the child has both known parents
+		String fpg = "";	//first parent gender
+		int fpi = 0;	//first parent index
+		String spg = "";	//second parent gender
+		int spi = 0;	//second parent index
+		for (int i = 0; i < graph.size(); i++){
+			if (graph.get(i)[0].equals(childName)){
+				for (int j = 0; j < graph.size(); j++){
+					if (graph.get(j)[0].equals(graph.get(i)[2])){
+						fpg = graph.get(j)[1];
+						fpi = j;
+					}
+					if (graph.get(j)[0].equals(graph.get(i)[3])){
+						spg = graph.get(j)[1];
+						spi = j;
+					}
+				}
+				if (!fpg.equals("") && fpg.equals(spg)){
+					return false;
+				} else if (fpg.equals("") && spg.equals("")){
+				} else {
+					String fg = ""; fg += (fpg.equals("")) ? (char) (147 - spg.charAt(0)) : "";
+					String sg = ""; sg += (spg.equals("")) ? (char) (147 - fpg.charAt(0)) : "";
+					addGender(graph.get(fpi)[0], fg);
+					addGender(graph.get(spi)[0], sg);
+				}
+			}
+		}
+		return true;
+	}
+	
+	public boolean trace (String name, String check, int iteration){
+		for (String descendant : getChildrenOf(name)){
+//			System.out.println("descendant " + iteration + ": " + descendant);
+			if (descendant.equals(check)){
+				return true;
+			}
+			else if (trace(descendant, check, iteration + 1)){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+    public boolean male(String name) {
+        return addGender(name, "M");
+    }
+    public boolean isMale(String name) {
+        return isGender(name, "M");
+    }
+    public boolean female(String name) {
+        return addGender(name, "F");
+    }
+    public boolean isFemale(String name) {
+        return isGender(name, "F");
+    }
+    public boolean setParentOf(String childName, String parentName) {
+    	if (childName.equals(parentName)){
+    		return false;
+    	}
+    	addGender(childName, "");
+    	addGender(parentName, "");
+    	for (int i = 0; i < graph.size(); i++){
+    		if (graph.get(i)[0].equals(childName)){
+    			if (graph.get(i)[2].equals("")){
+    				graph.get(i)[2] = parentName;
+    				if (trace(parentName, parentName, 1)){
+    					graph.get(i)[2] = "";
+    					
+    					//false if trace or isGay returns true
+        				return false;
+        			}
+    			} else if (graph.get(i)[3].equals("") && graph.get(i)[2] != parentName){
+    				if (isMale(parentName) == true && isMale(graph.get(i)[2]) == true ||
+    					isFemale(parentName) == true && isFemale(graph.get(i)[2]) == true){
+    					
+    					//false if both parents are of the same gender
+    					return false;
+    				}
+    				graph.get(i)[3] = parentName;
+    				if (trace(parentName, parentName, 1)){
+    					graph.get(i)[3] = "";
+    					
+    					//false if trace or isGay returns true
+        				return false;
+        			}
+    				deduceGenderOfParent(childName);
+    			} else if (!graph.get(i)[2].equals(parentName) &&
+    					   !graph.get(i)[3].equals(parentName)){
+    				
+    				//false if the child already has two parents
+    				return false;
+    			}
+    			
+    		}
+    	}
+        return true;
+    }
+    public List<String> getParentsOf(String name) {
+    	addGender(name, "");
+    	List<String> parents = new ArrayList<>();
+    	for (String[] p : graph){
+			if (p[0].equals(name)){
+				if (p[2] != ""){
+					parents.add(p[2]);
+					if (!p[3].equals("")){
+						parents.add(p[3]);
+					}
+				}
+			}
+		}
+    	java.util.Collections.sort(parents);
+        return parents;
+    }
+    public List<String> getChildrenOf(String name) {
+    	addGender(name, "");
+    	List<String> children = new ArrayList<>();
+    	for (String[] p : graph){
+			if (p[2].equals(name) || p[3].equals(name)){
+				children.add(p[0]);
+			}
+		}
+    	java.util.Collections.sort(children);
+        return children;
+    }
+    
+    //welcome to the confusing paradoxical detection part
+    //1. Detect if a family tree leads to an impossibly gendered couple
+    public boolean isGay(){
+		List<String[]> couples = new ArrayList<>();
+		for (String[] name : graph){
+			if (!name[2].equals("") && !name[3].equals("")){
+				String[] element = {name[2], "", name[3], ""};
+				couples.add(element);
+			}
+		}
+		fillGender(couples);
+		for (String[] name : couples){
+			if (name[1].equals(name[3])){
+				return true;
+			}
+		}
+		
+		return false;
+	}
+    
+    public boolean hasEmptyElement(List<String[]> para){
+    	for (String[] check : para){
+    		if (check[1].equals("") || check[3].equals("")){
+    			return true;
+    		}
+    	}
+    	return false;
+    }
+    
+    public void fillGender(List<String[]> para){
+    	if (hasEmptyElement(para)){
+    		for (String[] check : para){
+    			if (check[1].equals("")){
+    				assignRandomGender(para, check[0]);
+    			} else if (check[3].equals("")){
+    				assignRandomGender(para, check[2]);
+    			}
+    		}
+    	}
+    }
+    
+    public List<String[]> assignRandomGender(List<String[]> para, String name){
+    	for (String[] check : para){
+    		String gender = "";
+    		if (check[0].equals(name) && !check[3].equals("")){
+    			gender += (char) (147 - check[3].charAt(0));
+    		} else if (check[3].equals(name) && !check[0].equals("")){
+    			gender += (char) (147 - check[0].charAt(0));
+    		} else if (check[0].equals(name) && check[3].equals("")||
+    				   check[3].equals(name) && !check[0].equals("")){
+    			gender = "M";
+    		} else {
+    			continue;
+    		}
+    		for (int i = 0; i < para.size(); i++){
+    			if (para.get(i)[0].equals(name)){
+    				para.get(i)[1] = gender;
+    			} else if (para.get(i)[2].equals(name)){
+    				para.get(i)[3] = gender;
+    			}
+    		}
+    	}
+    	return para;
+    }
+    
+    
+    
+    
+}
